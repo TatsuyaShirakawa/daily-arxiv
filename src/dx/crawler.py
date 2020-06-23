@@ -14,13 +14,13 @@ locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
 class Crawler:
 
     date_format = re.compile(r'^(?P<date>\S+, \d+ \S+ \d+)')
-
+    
     def crawl_recent(self,
                      targets=['cs', 'stat.ML'],
-                     from_days_ago=1,
-                     to_days_ago=0,
+                     since=0,
+                     until=0,
                      num_shows=512):
-        assert(from_days_ago <= to_days_ago)
+        assert(since >= until)
         target_urls = {target: f'https://arxiv.org/list/{target}/pastweek'
                        for target in targets}
         cur_locale = locale.getlocale(locale.LC_TIME)
@@ -31,10 +31,10 @@ class Crawler:
         try:
             now = datetime.datetime.now()
             today = datetime.datetime(now.year, now.month, now.day)
-            start_date = today - datetime.timedelta(from_days_ago)
-            end_date = today - datetime.timedelta(days=to_days_ago - 1)
-            metadata = {'start_date': start_date.strftime('%Y/%m/%d'),
-                        'end_date': end_date.strftime('%Y/%m/%d')}
+            start_date = today - datetime.timedelta(since)
+            end_date = today - datetime.timedelta(days=until - 1)
+            metadata = {'since': start_date.strftime('%Y/%m/%d'),
+                        'until': end_date.strftime('%Y/%m/%d')}
             logger.info(metadata)
             papers = []
             all_titles = set([])
