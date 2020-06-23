@@ -1,6 +1,3 @@
-import argparse
-import json
-from pathlib import Path
 import time
 import re
 import locale
@@ -8,7 +5,7 @@ import datetime
 import requests
 from loguru import logger
 from bs4 import BeautifulSoup
-from tqdm import tqdm
+import arxiv
 
 
 locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
@@ -18,17 +15,27 @@ class Crawler:
 
     date_format = re.compile(r'^(?P<date>\S+, \d+ \S+ \d+)')
 
-    def __init__(self):
-        ...
-        
-    def crawl_recent(self, targets=['cs', 'stat.ML'], days=1, num_shows=512):
+    def crawl_recent(self,
+                     targets=['cs', 'stat.ML'],
+                     from_days_ago=1,
+                     to_days_ago=0,
+                     num_shows=512):
+        assert(from_days_ago <= to_days_ago)
         target_urls = {target: f'https://arxiv.org/list/{target}/pastweek'
                        for target in targets}
         cur_locale = locale.getlocale(locale.LC_TIME)
         locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
 
+        
+        # list papers
         try:
-            today = datetime.datetime.now()
+            now = datetime.datetime.now()
+            today = datetime.datetime(now.year, now.month, now.day)
+            start_date = today - datetime.timedelta(from_days_ago)
+            end_date = today - datetime.timedelta(days=to_days_ago - 1)
+            metadata = {'start_date': start_date.strftime('%Y/%m/%d'),
+                        'end_date': end_date.strftime('%Y/%m/%d')}
+            logger.info(metadata)
             papers = []
             all_titles = set([])
             for cat, url in target_urls.items():
@@ -45,15 +52,24 @@ class Crawler:
                     dl = dls.pop(0)
                     s = self.date_format.search(h3.text)
                     logger.info(f'{h3.text}')
-                    date = datetime.datetime.strptime(s.group('date'),
+                    date_str = s.group('date')
+                    print(date_str)
+                    elms = date_str.split()
+                    if len(elms[1]) == 1:
+                        elms[1] = '0' + elms[1]  # strptime
+                    elms[2] = {'Jun': 'June'}.get(elms[2], elms[2])
+                    date_str = ' '.join(elms)
+                    date_str2 = datetime.datetime.now().strftime('%a, %d %B %Y')
+                    date = datetime.datetime.strptime(date_str,
                                                       '%a, %d %B %Y')
-                    if today - date > datetime.timedelta(days=days):
+                    if date >= end_date:
+                        continue
+                    if date < start_date:
                         break
-
                     dts = dl.find_all('dt')
                     dds = dl.find_all('dd')
                     assert(len(dts) == len(dds))
-                    for dt, dd in tqdm(zip(dts, dds)):
+                    for dt, dd in zip(dts, dds):
                         info = {}
 
                         info['date'] = datetime.datetime.strftime(date,
@@ -66,6 +82,8 @@ class Crawler:
                             href = 'https://arxiv.org' + a['href']
                             links[title] = href
                         info['links'] = links
+
+                        info['id'] = info['links']['Abstract'].split('/')[-1]
 
                         # title
                         div = dd.div.find('div', class_='list-title')
@@ -106,16 +124,6 @@ class Crawler:
                         info['subjects'] = subjects
                         print(title, div.text.strip())
 
-                        # abstract
-                        time.sleep(0.1)
-                        res2 = requests.get(info['links']['Abstract'])
-                        soup2 = BeautifulSoup(res2.text, 'lxml')
-                        blockquote = soup2.find('blockquote',
-                                              class_='abstract')
-                        blockquote.find('span', class_='descriptor').extract()
-                        info['abstract'] = blockquote.text.strip()
-
-
                         papers.append(info)
 
                     num_processed += len(dds)
@@ -130,23 +138,13 @@ class Crawler:
                         dls = soup.find_all('dl')
                         if len(h3s) == 0:
                             break
-            return papers
         finally:
             locale.setlocale(locale.LC_TIME, '.'.join(cur_locale))
+
+
+        arxiv_infos = arxiv.query(id_list=[paper['id'] for paper in papers])
+        for paper, arxiv_info in zip(papers, arxiv_infos):
+            paper['summary'] = arxiv_info['summary'].strip()
+            paper['detail'] = arxiv_info
         
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--targets', nargs='+', default=['cs', 'stat.ML'],
-                        type=str)
-    parser.add_argument('--days', type=int, default=1)
-    parser.add_argument('-o', '--output_dir', type=Path, default='result')
-    args = parser.parse_args()
-    logger.info(args)
-    crawler = Crawler()
-    papers = crawler.crawl_recent(targets=args.targets,
-                                  days=args.days)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f'saving {str(args.output_dir / "papers.json")}')
-    json.dump(papers, open(args.output_dir / 'papers.json', 'w'))
+        return {'meta': metadata, 'papers': papers}
