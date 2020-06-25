@@ -14,7 +14,7 @@ locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
 class Crawler:
 
     date_format = re.compile(r'^(?P<date>\S+, \d+ \S+ \d+)')
-    
+
     def crawl_recent(self,
                      targets=['cs', 'stat.ML'],
                      since=0,
@@ -26,7 +26,6 @@ class Crawler:
         cur_locale = locale.getlocale(locale.LC_TIME)
         locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
 
-        
         # list papers
         try:
             now = datetime.datetime.now()
@@ -59,7 +58,6 @@ class Crawler:
                         elms[1] = '0' + elms[1]  # strptime
                     elms[2] = {'Jun': 'June'}.get(elms[2], elms[2])
                     date_str = ' '.join(elms)
-                    date_str2 = datetime.datetime.now().strftime('%a, %d %B %Y')
                     date = datetime.datetime.strptime(date_str,
                                                       '%a, %d %B %Y')
                     if date >= end_date:
@@ -73,8 +71,8 @@ class Crawler:
                         info = {}
 
                         info['date'] = datetime.datetime.strftime(date,
-                                                                '%a, %d %b %Y')
-                        
+                                                                  '%a, %d %b %Y')
+
                         # links
                         links = {}
                         for a in dt.span.find_all('a'):
@@ -95,7 +93,7 @@ class Crawler:
                             continue
                         all_titles.add(title)
                         logger.info(f'[{len(papers) + 1}] {title}')
-                        
+
                         # authors
                         div = dd.div.find('div', class_='list-authors')
                         div.find('span', class_='descriptor').extract()
@@ -115,7 +113,7 @@ class Crawler:
                             info['comments'] = None
 
                         # handling href
-                        
+
                         # subjects
                         div = dd.div.find('div', class_='list-subjects')
                         div.find('span', class_='descriptor').extract()
@@ -129,7 +127,6 @@ class Crawler:
                     num_processed += len(dds)
                     if len(h3s) == 0:
                         num_skip = num_processed  # 5 is magic number margin
-                        print('@@@@', num_skip)
                         next_url = url + f'?skip={num_skip}&show={num_shows}'
                         time.sleep(0.1)
                         res = requests.get(next_url)
@@ -141,10 +138,9 @@ class Crawler:
         finally:
             locale.setlocale(locale.LC_TIME, '.'.join(cur_locale))
 
-
         arxiv_infos = arxiv.query(id_list=[paper['id'] for paper in papers])
         for paper, arxiv_info in zip(papers, arxiv_infos):
             paper['summary'] = arxiv_info['summary'].strip()
             paper['detail'] = arxiv_info
-        
+
         return {'meta': metadata, 'papers': papers}

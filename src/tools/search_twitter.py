@@ -1,11 +1,9 @@
 import argparse
 from pathlib import Path
 import json
-import time
 from loguru import logger
 from tqdm import tqdm
 import twint
-from joblib import Parallel, delayed
 
 
 def search_tweets(arxiv_id, limit=100):
@@ -22,24 +20,20 @@ def search_tweets(arxiv_id, limit=100):
 
 def parse_args():
     parser = argparse.ArgumentParser('Search Twitter')
-    parser.add_argument('-i', '--input_file', type=Path, default='result/papers.json')    
-    parser.add_argument('-o', '--output_file', type=Path, default='result/papers_with_tweets.json')
+    parser.add_argument('-i', '--input_file', type=Path,
+                        default='result/papers.json')
+    parser.add_argument('-o', '--output_file', type=Path,
+                        default='result/papers_with_tweets.json')
     args = parser.parse_args()
     return args
 
 
 def main(args):
-    
+
     papers = json.load(open(args.input_file))
-    '''
-    for paper in papers['papers']:
+
+    for paper in tqdm(papers['papers']):
         paper['tweets'] = search_tweets(paper['id'])
-    '''
-    ret = Parallel(n_jobs=-1, verbose=10)(
-        [delayed(search_tweets)(paper['id']) for paper in papers['papers']]
-    )
-    for paper, tweets in zip(papers['papers'], ret):
-        paper['tweets'] = tweets
 
     args.output_file.parent.mkdir(parents=True, exist_ok=True)
     json.dump(papers, open(args.output_file, 'w'))

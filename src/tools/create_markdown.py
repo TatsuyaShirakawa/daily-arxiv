@@ -1,10 +1,8 @@
 import re
 import os
-import time
 import json
 from pathlib import Path
 from tqdm import tqdm
-from loguru import logger
 import click
 import twitter
 
@@ -32,7 +30,7 @@ def total_favorite_count(paper):
 def paper_score(paper):
     all_tweets = paper['tweets']
     return sum([tweet_score(tweet) for tweet in all_tweets])
-    
+
 
 class DailyArxivWriter:
 
@@ -52,12 +50,11 @@ class DailyArxivWriter:
                                   'cs.PL',
                                   'cs.RO',
                                   'cs.SE'
-                 ],
-    ):
+                                  ],
+                 ):
         assert(len(set(favorite_tags) & set(unfavorite_tags)) == 0)
         self.favorite_tags = favorite_tags[:]
-        self.unfavorite_tags = unfavorite_tags[:]        
-
+        self.unfavorite_tags = unfavorite_tags[:]
 
     def save_markdown(self, data, result_file):
 
@@ -65,14 +62,11 @@ class DailyArxivWriter:
         papers = data['papers']
 
         r_subject = re.compile(r'.+ \((?P<subject>.+)\)')
-        subject_tags = [tuple([r_subject.search(_).group('subject') for _ in p['subjects']]) for p in papers]
 
-        
         def write_paper(paper, fout):
             title = paper['title']
             authors = ', '.join(paper['authors'])
             links = paper['links']
-            link_abs = links['Abstract']
             link_pdf = None if not "Download PDF" in links else links['Download PDF']
             subjects = [r_subject.search(_).group('subject')
                         for _ in paper['subjects']]
@@ -83,12 +77,11 @@ class DailyArxivWriter:
             print(authors, file=fout)
             print(f'abs: {links["Abstract"]}', file=fout)
             if link_pdf:
-                print(f'pdf: {links["Download PDF"]}', file=fout) 
+                print(f'pdf: {links["Download PDF"]}', file=fout)
             print(' | '.join(subjects), file=fout)
             print(f'```\n{abstract}\n```', file=fout)
             print(file=fout)
             print(file=fout)
-                
 
         tags = []
         for paper in papers:
@@ -110,29 +103,29 @@ class DailyArxivWriter:
 
         favorites = sorted(favorites, key=lambda p: p['subjects'][0])
         unfavorites = sorted(unfavorites, key=lambda p: p['subjects'][0])
-        others = sorted(others, key=lambda p: p['subjects'][0])        
-        
+        others = sorted(others, key=lambda p: p['subjects'][0])
+
         # translator = Translator()
         with open(result_file, 'w') as fout:
-            start_date = metadata['start_date']
-            end_date = metadata['end_date']            
+            start_date = metadata['since']
+            end_date = metadata['until']
             print(f'# {len(papers)} Papers ({start_date} ~ {end_date})', file=fout)
             print(file=fout)
             print(f'## {len(favorites)} High-Priority Papers', file=fout)
             print(' | '.join(sorted(self.favorite_tags)), file=fout)
-                
+
             for paper in tqdm(favorites):
                 write_paper(paper, fout)
 
             print(f'## {len(others)} Middle-Priority Papers', file=fout)
             for paper in tqdm(others):
                 write_paper(paper, fout)
-                
+
             print(f'## {len(unfavorites)} Low-Priority Papers', file=fout)
             for paper in tqdm(unfavorites):
                 write_paper(paper, fout)
 
-                
+
 class TwitterHighlightWriter:
 
     def __init__(self,
@@ -151,10 +144,10 @@ class TwitterHighlightWriter:
                                   'cs.PL',
                                   'cs.RO',
                                   'cs.SE'
-                 ],
-                 paper_score_threshold=100,
-                 tweet_score_threshold=30
-    ):
+                                  ],
+                 paper_score_threshold=50,
+                 tweet_score_threshold=25
+                 ):
         assert(len(set(favorite_tags) & set(unfavorite_tags)) == 0)
         self.favorite_tags = favorite_tags[:]
         self.unfavorite_tags = unfavorite_tags[:]
@@ -208,38 +201,36 @@ class TwitterHighlightWriter:
         papers = data['papers']
 
         r_subject = re.compile(r'.+ \((?P<subject>.+)\)')
-        subject_tags = [tuple([r_subject.search(_).group('subject') for _ in p['subjects']]) for p in papers]
 
-        
         def write_paper(no, paper, fout):
             title = paper['title']
             authors = ', '.join(paper['authors'])
             links = paper['links']
-            link_abs = links['Abstract']
             link_pdf = None if not "Download PDF" in links else links['Download PDF']
             subjects = [r_subject.search(_).group('subject')
                         for _ in paper['subjects']]
             abstract = paper["summary"].replace('\n', ' ')
             total_retweet = total_retweet_count(paper)
-            total_favorite = total_favorite_count(paper)            
+            total_favorite = total_favorite_count(paper)
 
             print(file=fout)
             print(f'### {no}. {title}', file=fout)
             print(authors, file=fout)
-            print(f':arrows_clockwise: {total_retweet}    :heart: {total_favorite}', file=fout)
+            print(
+                f':arrows_clockwise: {total_retweet}    :heart: {total_favorite}', file=fout)
             print(f':link: abs: {links["Abstract"]}', file=fout)
             if link_pdf:
                 print(f':link: pdf: {links["Download PDF"]}', file=fout)
-            print(file=fout)                
+            print(file=fout)
             print(' | '.join(subjects), file=fout)
-            print(file=fout)            
+            print(file=fout)
             print(f'> {abstract}', file=fout)
             print(file=fout)
             print(file=fout)
 
             print(file=fout)
             for tweet in list(reversed(sorted(paper['tweets'],
-                                               key=tweet_score)))[:tweet_topk]:
+                                              key=tweet_score)))[:tweet_topk]:
                 retweet_count = int(tweet['retweets_count'])
                 favorite_count = int(tweet['likes_count'])
 
@@ -248,9 +239,9 @@ class TwitterHighlightWriter:
 
                 tweet_str = self.get_tweet_string(tweet)
                 print(tweet_str, file=fout)
-                
+
             print(file=fout)
-            print(file=fout)                
+            print(file=fout)
 
         tags = []
         for paper in papers:
@@ -265,10 +256,11 @@ class TwitterHighlightWriter:
         favorites = list(reversed(sorted(favorites, key=paper_score)))
 
         with open(result_file, 'w') as fout:
-            start_date = metadata['start_date']
-            end_date = metadata['end_date']
-            print(f'# {len(favorites)} Hot Papers ({start_date} ~ {end_date})', file=fout)
-                
+            start_date = metadata['since']
+            end_date = metadata['until']
+            print(
+                f'# {len(favorites)} Hot Papers ({start_date} ~ {end_date})', file=fout)
+
             for i, paper in enumerate(tqdm(favorites)):
                 write_paper(i + 1, paper, fout)
 
@@ -282,13 +274,13 @@ def cli():
 @click.option('-i', '--input_file', default='result/papers_with_tweets.json', type=Path)
 @click.option('-o', '--output_file', default='result/twitter_highlights.md', type=Path)
 @click.option('-p', '--paper_score_threshold', default=50, type=int)
-@click.option('-t', '--tweet_score_threshold', default=30, type=int)
+@click.option('-t', '--tweet_score_threshold', default=25, type=int)
 def twitter_highlight(input_file, output_file, paper_score_threshold, tweet_score_threshold):
     data = json.load(open(input_file))
     writer = TwitterHighlightWriter(paper_score_threshold=paper_score_threshold,
                                     tweet_score_threshold=tweet_score_threshold)
     writer.save_markdown(data, output_file)
-                
+
 
 @cli.command('daily_arxiv')
 @click.option('-i', '--input_file', default='result/papers.json', type=Path)
