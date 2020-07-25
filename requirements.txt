@@ -3,7 +3,6 @@ loguru
 click
 python-twitter
 dotenv
-joblib
 twint
 arxiv
 beautifulsoup4

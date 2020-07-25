@@ -26,7 +26,7 @@ def main(args):
                                   since=args.since,
                                   until=args.until)
 
-    args.output_file.parent.mkdir(parents=True, exipst_ok=True)
+    args.output_file.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f'saving {str(args.output_file)}')
     json.dump(papers, open(args.output_file, 'w'))
 

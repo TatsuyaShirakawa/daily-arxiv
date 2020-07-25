@@ -58,8 +58,12 @@ class Crawler:
                         elms[1] = '0' + elms[1]  # strptime
                     elms[2] = {'Jun': 'June'}.get(elms[2], elms[2])
                     date_str = ' '.join(elms)
-                    date = datetime.datetime.strptime(date_str,
-                                                      '%a, %d %B %Y')
+                    try:
+                        date = datetime.datetime.strptime(date_str,
+                                                          '%a, %d %B %Y')
+                    except ValueError:
+                        date = datetime.datetime.strptime(date_str,
+                                                          '%a, %d %b %Y')
                     if date >= end_date:
                         continue
                     if date < start_date:

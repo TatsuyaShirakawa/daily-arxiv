@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import time
 import json
 from loguru import logger
 from tqdm import tqdm
@@ -24,6 +25,8 @@ def parse_args():
                         default='result/papers.json')
     parser.add_argument('-o', '--output_file', type=Path,
                         default='result/papers_with_tweets.json')
+    parser.add_argument('-s', '--sleep', type=float,
+                        default=0.1)
     args = parser.parse_args()
     return args
 
@@ -34,6 +37,7 @@ def main(args):
 
     for paper in tqdm(papers['papers']):
         paper['tweets'] = search_tweets(paper['id'])
+        time.sleep(args.sleep)
 
     args.output_file.parent.mkdir(parents=True, exist_ok=True)
     json.dump(papers, open(args.output_file, 'w'))
