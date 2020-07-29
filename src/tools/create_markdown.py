@@ -408,7 +408,7 @@ tags:
   - "Machine Learning"
   - "Computer Science"
 description: "Hot papers {date_str}"
-socialImage: "/media/42-line-bible.jpg"
+socialImage: "/media/flying-marine.jpg"
 
 ---''', file=fout)
 
@@ -441,6 +441,8 @@ def twitter_highlight(input_file, output_file, paper_score_threshold, tweet_scor
 @click.option('-t', '--tweet_score_threshold', default=25, type=int)
 def blog(input_file, output_dir, paper_score_threshold, tweet_score_threshold):
     data = json.load(open(input_file))
+    if len(data['papers']) == 0:
+        return 
     writer = HotPaperBlogWriter(paper_score_threshold=paper_score_threshold,
                                 tweet_score_threshold=tweet_score_threshold)
     
